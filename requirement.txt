@@ -1,0 +1,11 @@
+Instructions to Run the Game:
+
+1.Clone the entire repository.
+
+2.Navigate to the First Program directory.
+
+3.Run the app.py file to start the game.
+
+No need to install any dependencies—everything is ready to go!
+
+ENJOY
