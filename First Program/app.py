@@ -4,113 +4,381 @@ from OpenGL.GLU import *
 import sys
 import math
 import random
+import time
 
-# Window dimensions
 width, height = 800, 600
 
-# Game state
-class GameState:
+class Player:
     def __init__(self):
-        # Player properties
-        self.player_pos = [0.0, 1.0, 0.0]  # x, y, z
-        self.player_angle = 0.0
-        self.player_lives = 10
-        self.player_kills = 0
-        self.is_jumping = False
-        self.jump_height = 0
-        self.jump_max_height = 2.0
-        self.jump_speed = 0.1
+        self.position = [0.0, 1.0, 0.0]  
+        self.angle = 0.0
+        self.lives = 10
+        self.kills = 0
 
-        # Game objects
+    def draw(self):
+        glPushMatrix()
+        glTranslatef(self.position[0], self.position[1], self.position[2])
+        glRotatef(self.angle, 0.0, 1.0, 0.0)
+
+        
+        glColor3f(0.0, 0.5, 1.0)  
+        glPushMatrix()
+        glScalef(0.5, 1.5, 0.5)
+        glutSolidCube(1.0)
+        glPopMatrix()
+
+        
+        glColor3f(1.0, 0.8, 0.6)  
+        glPushMatrix()
+        glTranslatef(0.0, 1.0, 0.0)
+        glutSolidSphere(0.3, 20, 20)
+        glPopMatrix()
+
+        
+        glColor3f(0.3, 0.3, 0.3)  
+        glPushMatrix()
+        glTranslatef(0.2, 0.5, 0.0)
+        glRotatef(-90.0, 1.0, 0.0, 0.0)
+        glutSolidCylinder(0.05, 0.8, 10, 10)
+        glPopMatrix()
+
+        glPopMatrix()
+
+class Enemy:
+    def __init__(self, position, speed, size=0.8):
+        self.position = position.copy()
+        self.speed = speed
+        self.size = size
+        self.angle = 0  
+
+    def update(self, player_pos, cheat_mode_active=False):
+        # Calculate direction to player
+        dx = player_pos[0] - self.position[0]
+        dz = player_pos[2] - self.position[2]
+        dist = math.sqrt(dx*dx + dz*dz)
+
+        
+        if dist > 0.1:
+            self.angle = math.degrees(math.atan2(dx, dz))
+            self.position[0] += (dx/dist) * self.speed
+            self.position[2] += (dz/dist) * self.speed
+
+        if dist < 0.8 and not cheat_mode_active:
+            return True
+        return False
+
+    def draw(self):
+        glPushMatrix()
+        glTranslatef(self.position[0], self.position[1], self.position[2])
+        glRotatef(-self.angle, 0.0, 1.0, 0.0) 
+
+        glColor3f(1.0, 0.0, 0.0)  
+        glPushMatrix()
+        glScalef(0.4, 1.2, 0.4) 
+        glutSolidCube(1.0)
+        glPopMatrix()
+
+        
+        glColor3f(0.8, 0.4, 0.4)  
+        glPushMatrix()
+        glTranslatef(0.0, 0.9, 0.0)  
+        glutSolidSphere(0.25, 20, 20)
+        glPopMatrix()
+
+        
+        glColor3f(1.0, 1.0, 1.0)  
+        glPushMatrix()
+        glTranslatef(0.15, 0.9, 0.2)
+        glutSolidSphere(0.05, 10, 10)
+        glTranslatef(-0.3, 0.0, 0.0)
+        glutSolidSphere(0.05, 10, 10)
+        glPopMatrix()
+
+        glPopMatrix()
+
+class Queen:
+    def __init__(self, position):
+        self.position = position.copy()
+        self.size = 1.0
+        self.saved = False
+        self.angle = 0  
+
+    def check_collision(self, player_pos):
+        if self.saved:
+            return False
+
+        dx = player_pos[0] - self.position[0]
+        dz = player_pos[2] - self.position[2]
+        dist = math.sqrt(dx*dx + dz*dz)
+
+        if dist < 1.5:  
+            self.saved = True
+            return True
+        return False
+
+    def draw(self):
+        if not self.saved:
+            glPushMatrix()
+            glTranslatef(self.position[0], self.position[1], self.position[2])
+            glRotatef(self.angle, 0.0, 1.0, 0.0)  
+
+            
+            glColor3f(0.6, 0.0, 0.8)  
+            glPushMatrix()
+            glScalef(0.6, 1.8, 0.6)  
+            glutSolidCube(1.0)
+            glPopMatrix()
+
+            
+            glColor3f(1.0, 0.8, 0.6)  
+            glPushMatrix()
+            glTranslatef(0.0, 1.3, 0.0)
+            glutSolidSphere(0.3, 20, 20)
+            glPopMatrix()
+
+            
+            glColor3f(1.0, 0.84, 0.0)
+            glPushMatrix()
+            glTranslatef(0, 1.6, 0)
+            glRotatef(90, 1, 0, 0)
+            glutSolidTorus(0.05, 0.3, 10, 10)
+
+            
+            for i in range(5):
+                glPushMatrix()
+                glRotatef(i * 72, 0, 0, 1)
+                glTranslatef(0.3, 0, 0)
+                glutSolidCone(0.05, 0.2, 10, 10)
+                glPopMatrix()
+            glPopMatrix()
+
+            
+            glColor3f(0.8, 0.0, 1.0)  
+            glPushMatrix()
+            glTranslatef(0, 0.5, 0)
+            glScalef(0.7, 0.2, 0.7)
+            glutSolidTorus(0.1, 0.5, 10, 10)
+            glPopMatrix()
+
+            glPopMatrix()
+
+           
+            self.angle = (self.angle + 0.5) % 360
+
+class Bullet:
+    def __init__(self, position, angle):
+        self.position = position.copy()
+        self.angle = angle
+        self.speed = 0.5
+
+    def update(self, tile_center, max_dist):
+        rad = math.radians(self.angle)
+        self.position[0] += self.speed * math.sin(rad)
+        self.position[2] += self.speed * math.cos(rad)
+
+        
+        if (abs(self.position[0] - tile_center[0]) > max_dist or
+            abs(self.position[2] - tile_center[2]) > max_dist):
+            return True
+        return False
+
+    def draw(self):
+        glPushMatrix()
+        glTranslatef(self.position[0], self.position[1], self.position[2])
+
+        glColor3f(1.0, 1.0, 0.0)  
+        glutSolidSphere(0.1, 10, 10)
+
+        glPopMatrix()
+
+class Tile:
+    def __init__(self, position, size, num_enemies, enemy_speed, is_final=False):
+        self.position = position.copy()
+        self.size = size
+        self.num_enemies = num_enemies
+        self.enemy_speed = enemy_speed
+        self.is_final = is_final
+        self.completed = False
+
+    def draw(self):
+        glPushMatrix()
+        glTranslatef(self.position[0], self.position[1], self.position[2])
+
+        
+        half_size = self.size / 2
+
+        glColor3f(0.7, 0.7, 0.7)  
+        glBegin(GL_QUADS)
+        glVertex3f(-half_size, 0, -half_size)
+        glVertex3f(half_size, 0, -half_size)
+        glVertex3f(half_size, 0, half_size)
+        glVertex3f(-half_size, 0, half_size)
+        glEnd()
+
+        
+        glColor3f(0.4, 0.4, 0.4)
+        edge_height = 0.2
+        glBegin(GL_QUADS)
+        
+        glVertex3f(-half_size, 0, -half_size)
+        glVertex3f(half_size, 0, -half_size)
+        glVertex3f(half_size, -edge_height, -half_size)
+        glVertex3f(-half_size, -edge_height, -half_size)
+        
+        glVertex3f(-half_size, 0, half_size)
+        glVertex3f(half_size, 0, half_size)
+        glVertex3f(half_size, -edge_height, half_size)
+        glVertex3f(-half_size, -edge_height, half_size)
+        
+        glVertex3f(-half_size, 0, -half_size)
+        glVertex3f(-half_size, 0, half_size)
+        glVertex3f(-half_size, -edge_height, half_size)
+        glVertex3f(-half_size, -edge_height, -half_size)
+        
+        glVertex3f(half_size, 0, -half_size)
+        glVertex3f(half_size, 0, half_size)
+        glVertex3f(half_size, -edge_height, half_size)
+        glVertex3f(half_size, -edge_height, -half_size)
+        glEnd()
+
+        glPopMatrix()
+
+
+class GameState:
+    def __init__(self, difficulty=1):  
+      
+        if difficulty == 1:  
+            self.base_enemies = 4
+            self.enemy_speed = 0.01
+            self.final_enemies = 8
+        elif difficulty == 2:  
+            self.base_enemies = 6
+            self.enemy_speed = 0.04
+            self.final_enemies = 10
+        else:  
+            self.base_enemies = 8
+            self.enemy_speed = 0.1
+            self.final_enemies = 12
+
+        
+        self.player = Player()
+
+        
         self.bullets = []
         self.enemies = []
+        self.tiles = []
 
-        # Camera
-        self.camera_mode = 0  # 0 = TPP, 1 = FPP
+        
+        self.camera_mode = 0  
         self.camera_distance = 5.0
         self.camera_height = 3.0
 
-        # Tiles
-        self.current_tile = 0
-        self.tiles = []
-        self.create_tiles()
-
-        # Game status
+        
         self.game_over = False
         self.game_won = False
+        self.round_finished = False
+        self.show_final_round_message = False
+        self.showing_difficulty_menu = True  
+        self.paused = False  
 
-        self.is_jumping = False
-        self.jump_progress = 0
-        self.jump_duration = 30  # frames for jump to complete
-        self.jump_height = 2.0  # max height of jump
-        self.jump_distance = 20.0  # forward distance of jump
-        self.jump_start_pos = [0, 0, 0]  # starting position of jump
+        
+        self.queen = None
+        self.current_tile = 0
+        self.create_tiles()
+
+        
+        self.cheat_mode_available = False
+        self.cheat_mode_active = False
+        self.cheat_mode_end_time = 0
+        self.cheat_kills_needed = 10
+        self.cheat_duration = 5  
+
+    def activate_cheat_mode(self):
+        if self.cheat_mode_available and not self.cheat_mode_active:
+            self.cheat_mode_active = True
+            self.cheat_mode_end_time = time.time() + self.cheat_duration
+            self.cheat_mode_available = False
 
     def create_tiles(self):
-        # Create 6-8 tiles with increasing difficulty
+        
         num_tiles = random.randint(6, 8)
-        tile_spacing = 45.0  # Increased spacing to match larger tiles
+        tile_spacing = 45.0  
 
         for i in range(num_tiles):
-            # Regular tiles (3x larger than before)
+            
             if i < num_tiles - 1:
-                tile = {
-                    'position': [i * tile_spacing, 0, 0],  # x, y, z
-                    'size': 30.0,  # Increased from 10.0 to 30.0 (3x)d
-                    'num_enemies': random.randint(3, 4),
-                    'enemy_speed': 0.01,
-                    'completed': False
-                }
-            # Final tile (3x larger than before)
+                tile = Tile(
+                    position=[i * tile_spacing, 0, 0],
+                    size=30.0,
+                    num_enemies=random.randint(self.base_enemies - 1, self.base_enemies),
+                    enemy_speed=self.enemy_speed
+                )
+            
             else:
-                tile = {
-                    'position': [i * tile_spacing, 0, 0],
-                    'size': 60.0,  # Increased from 20.0 to 60.0 (3x)
-                    'num_enemies': 10,
-                    'enemy_speed': 0.08,  # Faster enemies
-                    'completed': False
-                }
+                tile = Tile(
+                    position=[i * tile_spacing, 0, 0],
+                    size=60.0,
+                    num_enemies=self.final_enemies,
+                    enemy_speed=self.enemy_speed * 3,  
+                    is_final=True
+                )
             self.tiles.append(tile)
 
-        # Initialize first tile
+        
         self.spawn_enemies()
+
+        
+        if self.tiles:  
+            final_tile = self.tiles[-1]
+            self.queen = Queen([
+                final_tile.position[0],
+                1.0,
+                final_tile.position[2]
+            ])
 
     def spawn_enemies(self):
         tile = self.tiles[self.current_tile]
         self.enemies = []
 
-        for _ in range(tile['num_enemies']):
-            # Spawn enemies within tile bounds
-            x = tile['position'][0] + random.uniform(-tile['size']/2, tile['size']/2)
-            z = tile['position'][2] + random.uniform(-tile['size']/2, tile['size']/2)
-            self.enemies.append({
-                'position': [x, 1.0, z],
-                'speed': tile['enemy_speed'],
-                'size': 0.8
-            })
+        for _ in range(tile.num_enemies):
+           
+            x = tile.position[0] + random.uniform(-tile.size/2, tile.size/2)
+            z = tile.position[2] + random.uniform(-tile.size/2, tile.size/2)
+            self.enemies.append(Enemy(
+                position=[x, 1.0, z],
+                speed=tile.enemy_speed
+            ))
 
     def check_tile_completion(self):
-        if len(self.enemies) == 0 and not self.tiles[self.current_tile]['completed']:
-            self.tiles[self.current_tile]['completed'] = True
+        if len(self.enemies) == 0 and not self.tiles[self.current_tile].completed:
+            self.tiles[self.current_tile].completed = True
+            self.round_finished = True
             return True
         return False
 
     def move_to_next_tile(self):
         if self.current_tile < len(self.tiles) - 1:
             self.current_tile += 1
-            # Position player at center of new tile
-            self.player_pos = [
-            self.tiles[self.current_tile]['position'][0],
-            1.0,  # Reset height
-            self.tiles[self.current_tile]['position'][2]
-             ]
+            
+            self.player.position = [
+                self.tiles[self.current_tile].position[0],
+                1.0,  
+                self.tiles[self.current_tile].position[2]
+            ]
+            self.round_finished = False
             self.spawn_enemies()
+
+           
+            if self.current_tile == len(self.tiles) - 2:
+                self.show_final_round_message = True
+                glutTimerFunc(2000, lambda _: setattr(self, 'show_final_round_message', False), 0)
+
             return True
         else:
             self.game_won = True
             return False
 
-# Initialize game state
+
 game_state = GameState()
 
 def init():
@@ -120,11 +388,11 @@ def init():
     glEnable(GL_LIGHT0)
     glEnable(GL_COLOR_MATERIAL)
 
-    # Set up light
+   
     light_position = [10.0, 10.0, 10.0, 1.0]
     glLightfv(GL_LIGHT0, GL_POSITION, light_position)
 
-    # Set material properties
+   
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
     glMaterialfv(GL_FRONT, GL_SPECULAR, [1.0, 1.0, 1.0, 1.0])
     glMaterialf(GL_FRONT, GL_SHININESS, 50.0)
@@ -138,118 +406,19 @@ def reshape(w, h):
     gluPerspective(60, w / h, 0.1, 100.0)
     glMatrixMode(GL_MODELVIEW)
 
-# Add this function to check if player is within current tile bounds
 def is_player_in_tile():
-    # If player is jumping, don't check bounds
-    if game_state.is_jumping:
-        return True
-
     current_tile = game_state.tiles[game_state.current_tile]
-    tile_center = current_tile['position']
-    half_size = current_tile['size'] / 2
+    tile_center = current_tile.position
+    half_size = current_tile.size / 2
 
-    # Check x and z coordinates (y is height, we don't care about that)
-    if (abs(game_state.player_pos[0] - tile_center[0]) > half_size or
-        abs(game_state.player_pos[2] - tile_center[2]) > half_size):
+    
+    if (abs(game_state.player.position[0] - tile_center[0]) > half_size or
+        abs(game_state.player.position[2] - tile_center[2]) > half_size):
         return False
     return True
 
-def draw_tile(tile):
-    glPushMatrix()
-    glTranslatef(tile['position'][0], tile['position'][1], tile['position'][2])
-
-    # Draw floor
-    size = tile['size']
-    half_size = size / 2
-
-    glColor3f(0.7, 0.7, 0.7)  # Gray color for tiles
-    glBegin(GL_QUADS)
-    glVertex3f(-half_size, 0, -half_size)
-    glVertex3f(half_size, 0, -half_size)
-    glVertex3f(half_size, 0, half_size)
-    glVertex3f(-half_size, 0, half_size)
-    glEnd()
-
-    # Draw edges
-    glColor3f(0.4, 0.4, 0.4)
-    edge_height = 0.2
-    glBegin(GL_QUADS)
-    # Front edge
-    glVertex3f(-half_size, 0, -half_size)
-    glVertex3f(half_size, 0, -half_size)
-    glVertex3f(half_size, -edge_height, -half_size)
-    glVertex3f(-half_size, -edge_height, -half_size)
-    # Back edge
-    glVertex3f(-half_size, 0, half_size)
-    glVertex3f(half_size, 0, half_size)
-    glVertex3f(half_size, -edge_height, half_size)
-    glVertex3f(-half_size, -edge_height, half_size)
-    # Left edge
-    glVertex3f(-half_size, 0, -half_size)
-    glVertex3f(-half_size, 0, half_size)
-    glVertex3f(-half_size, -edge_height, half_size)
-    glVertex3f(-half_size, -edge_height, -half_size)
-    # Right edge
-    glVertex3f(half_size, 0, -half_size)
-    glVertex3f(half_size, 0, half_size)
-    glVertex3f(half_size, -edge_height, half_size)
-    glVertex3f(half_size, -edge_height, -half_size)
-    glEnd()
-
-    glPopMatrix()
-
-def draw_player():
-    glPushMatrix()
-    glTranslatef(game_state.player_pos[0], game_state.player_pos[1], game_state.player_pos[2])
-    glRotatef(game_state.player_angle, 0.0, 1.0, 0.0)
-
-    # Body
-    glColor3f(0.0, 0.5, 1.0)  # Blue color
-    glPushMatrix()
-    glScalef(0.5, 1.5, 0.5)
-    glutSolidCube(1.0)
-    glPopMatrix()
-
-    # Head
-    glColor3f(1.0, 0.8, 0.6)  # Skin color
-    glPushMatrix()
-    glTranslatef(0.0, 1.0, 0.0)
-    glutSolidSphere(0.3, 20, 20)
-    glPopMatrix()
-
-    # Gun
-    glColor3f(0.3, 0.3, 0.3)  # Dark gray
-    glPushMatrix()
-    glTranslatef(0.2, 0.5, 0.0)
-    glRotatef(-90.0, 1.0, 0.0, 0.0)
-    glutSolidCylinder(0.05, 0.8, 10, 10)
-    glPopMatrix()
-
-    glPopMatrix()
-
-def draw_enemies():
-    for enemy in game_state.enemies:
-        glPushMatrix()
-        glTranslatef(enemy['position'][0], enemy['position'][1], enemy['position'][2])
-
-        # Enemy body
-        glColor3f(1.0, 0.0, 0.0)  # Red color
-        glutSolidSphere(enemy['size'], 20, 20)
-
-        glPopMatrix()
-
-def draw_bullets():
-    for bullet in game_state.bullets:
-        glPushMatrix()
-        glTranslatef(bullet['position'][0], bullet['position'][1], bullet['position'][2])
-
-        glColor3f(1.0, 1.0, 0.0)  # Yellow color
-        glutSolidSphere(0.1, 10, 10)
-
-        glPopMatrix()
-
-def draw_hud():
-    # Switch to 2D orthographic projection
+def draw_difficulty_menu():
+    
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
     glLoadIdentity()
@@ -258,32 +427,167 @@ def draw_hud():
     glPushMatrix()
     glLoadIdentity()
 
-    # Disable lighting for HUD
     glDisable(GL_LIGHTING)
 
-    # Draw kill counter
+   
     glColor3f(1.0, 1.0, 1.0)
-    text = f"Kills: {game_state.player_kills}"
+    title = "CHOOSE DIFFICULTY"
+    glRasterPos2f(width/2 - len(title)*9, height/2 - 100)
+    for char in title:
+        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, ord(char))
+
+    
+    options = [
+        "1 - Easy: 4 enemies per tile, slow speed",
+        "2 - Medium: 6 enemies per tile, medium speed",
+        "3 - Hard: 8 enemies per tile, fast speed"
+    ]
+
+    for i, option in enumerate(options):
+        glColor3f(0.8, 0.8, 0.8)
+        if i == 0:
+            glColor3f(0.0, 1.0, 0.0)  
+        elif i == 1:
+            glColor3f(1.0, 1.0, 0.0)  
+        elif i == 2:
+            glColor3f(1.0, 0.0, 0.0)  
+
+        glRasterPos2f(width/2 - len(option)*9, height/2 + i*30)
+        for char in option:
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
+
+    
+    glEnable(GL_LIGHTING)
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
+    glPopMatrix()
+
+def draw_crosshair():
+    
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    gluOrtho2D(0, width, height, 0)
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+
+    glDisable(GL_LIGHTING)
+
+    
+    glColor3f(1.0, 1.0, 1.0)  
+    crosshair_size = 15
+    line_width = 2
+
+    
+    glLineWidth(line_width)
+    glBegin(GL_LINES)
+    glVertex2f(width/2 - crosshair_size, height/2)
+    glVertex2f(width/2 + crosshair_size, height/2)
+    glEnd()
+
+    
+    glBegin(GL_LINES)
+    glVertex2f(width/2, height/2 - crosshair_size)
+    glVertex2f(width/2, height/2 + crosshair_size)
+    glEnd()
+
+    
+    glEnable(GL_LIGHTING)
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
+    glPopMatrix()
+
+def draw_hud():
+    
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    gluOrtho2D(0, width, height, 0)
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+
+    
+    glDisable(GL_LIGHTING)
+
+    
+    glColor3f(1.0, 1.0, 1.0)
+    text = f"Kills: {game_state.player.kills}"
     glRasterPos2f(20, 30)
     for char in text:
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
 
-    # Draw lives
-    text = f"Lives: {game_state.player_lives}"
+   
+    text = f"Lives: {game_state.player.lives}"
     glRasterPos2f(20, 60)
     for char in text:
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
 
-    # Draw current tile
+    
     text = f"Tile: {game_state.current_tile + 1}/{len(game_state.tiles)}"
     glRasterPos2f(20, 90)
     for char in text:
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
 
-    # Draw game over or victory message
+    
+    if game_state.current_tile == len(game_state.tiles) - 1:
+        if game_state.queen.saved:
+            status = "QUEEN SAVED!"
+            color = (0.0, 1.0, 0.0)  
+        else:
+            if len(game_state.enemies) > 0:
+                status = "DEFEAT ALL ENEMIES TO SAVE QUEEN"
+                color = (1.0, 0.0, 0.0)  
+            else:
+                status = "SAVE THE QUEEN! (Walk to her)"
+                color = (1.0, 1.0, 0.0) 
+
+        glColor3f(*color)
+        text_width = len(status) * 9
+        glRasterPos2f(width/2 - text_width/2, height - 30)
+        for char in status:
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
+
+    
+    if (game_state.round_finished and not game_state.game_won and
+        game_state.current_tile < len(game_state.tiles) - 1):
+        glColor3f(0.0, 1.0, 0.0)  
+        message1 = "ROUND FINISHED!"
+        message2 = "MOVE TO NEXT ROUND - PRESS SPACE"
+
+        
+        text_width1 = len(message1) * 18  
+        text_width2 = len(message2) * 18
+        x_pos1 = width/2 - text_width1/2
+        x_pos2 = width/2 - text_width2/2
+
+        
+        glRasterPos2f(x_pos1, height/2 - 30)
+        for char in message1:
+            glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, ord(char))
+
+        
+        glRasterPos2f(x_pos2, height/2 + 10)
+        for char in message2:
+            glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, ord(char))
+
+    
+    if game_state.show_final_round_message:
+        glColor3f(1.0, 0.0, 0.0)  
+        message = "FINAL ROUND!"
+        text_width = len(message) * 18  
+        x_pos = width/2 - text_width/2
+
+        glRasterPos2f(x_pos, height/2 - 50)
+        for char in message:
+            glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, ord(char))
+
+    
     if game_state.game_over:
         glColor3f(1.0, 0.0, 0.0)
-        # Check if player fell off
         if not is_player_in_tile():
             text = "FELL OFF THE TILE! - Press R to restart"
         else:
@@ -293,12 +597,34 @@ def draw_hud():
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
     elif game_state.game_won:
         glColor3f(0.0, 1.0, 0.0)
-        text = "VICTORY! - Press R to restart"
+        text = "VICTORY! YOU SAVED THE QUEEN! - Press R to restart"
         glRasterPos2f(width/2 - len(text)*5, height/2)
         for char in text:
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
 
-    # Re-enable lighting and restore projection
+    
+    if game_state.cheat_mode_active:
+        glColor3f(0.0, 1.0, 1.0)  
+        status = f"CHEAT MODE ACTIVE! {max(0, int(game_state.cheat_mode_end_time - time.time()))}s"
+        glRasterPos2f(width/2 - len(status)*4.5, 120)
+        for char in status:
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
+    elif game_state.cheat_mode_available:
+        glColor3f(1.0, 1.0, 0.0)  
+        status = "CHEAT MODE AVAILABLE! (Press M)"
+        glRasterPos2f(width/2 - len(status)*4.5, 120)
+        for char in status:
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
+
+    
+    if game_state.paused:
+        glColor3f(1.0, 1.0, 0.0)  
+        text = "GAME PAUSED - Press P to resume"
+        glRasterPos2f(width/2 - len(text)*5, height/2 + 100)
+        for char in text:
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
+
+    
     glEnable(GL_LIGHTING)
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
@@ -306,196 +632,203 @@ def draw_hud():
     glPopMatrix()
 
 def update(value):
-    if not game_state.game_over and not game_state.game_won:
-        # Handle jumping
-        if game_state.is_jumping:
-            game_state.jump_progress += 1
-            t = game_state.jump_progress / game_state.jump_duration
+    if not game_state.game_over and not game_state.game_won and not game_state.showing_difficulty_menu and not game_state.paused:
+        #
+        if game_state.cheat_mode_active and time.time() > game_state.cheat_mode_end_time:
+            game_state.cheat_mode_active = False
 
-            # Vertical jump curve
-            game_state.player_pos[1] = game_state.jump_start_pos[1] + math.sin(t * math.pi) * game_state.jump_height
-
-            # Only move forward if not transitioning between tiles
-            if not (len(game_state.enemies) == 0 and game_state.tiles[game_state.current_tile]['completed']):
-                rad = math.radians(game_state.player_angle)
-                game_state.player_pos[0] = game_state.jump_start_pos[0] + math.sin(rad) * game_state.jump_distance * t
-                game_state.player_pos[2] = game_state.jump_start_pos[2] + math.cos(rad) * game_state.jump_distance * t
-
-            # Jump completion
-            if game_state.jump_progress >= game_state.jump_duration:
-                game_state.is_jumping = False
-                game_state.player_pos[1] = 1.0  # Reset to standing height
-
-                # Check landing position for normal jumps
-                if not (len(game_state.enemies) == 0 and game_state.tiles[game_state.current_tile]['completed']):
-                    if not is_player_in_tile():
-                        game_state.game_over = True
-                # Handle tile transition
-                elif game_state.move_to_next_tile():
-                    pass  # Tile transition handled in move_to_next_tile()
-
-            glutPostRedisplay()
-            glutTimerFunc(16, update, 0)
-            return
-
-        # Check bounds only when grounded
-        if not game_state.is_jumping and not is_player_in_tile():
+        if not is_player_in_tile():
             game_state.game_over = True
             glutPostRedisplay()
             glutTimerFunc(16, update, 0)
             return
 
-        # Update bullets
-        bullet_speed = 0.5
-        for bullet in game_state.bullets[:]:
-            rad = math.radians(bullet['angle'])
-            bullet['position'][0] += bullet_speed * math.sin(rad)
-            bullet['position'][2] += bullet_speed * math.cos(rad)
+        
+        current_tile = game_state.tiles[game_state.current_tile]
+        max_dist = current_tile.size * 1.5
 
-            # Remove out-of-bounds bullets
-            current_tile = game_state.tiles[game_state.current_tile]
-            tile_center = current_tile['position']
-            max_dist = current_tile['size'] * 1.5
-            if (abs(bullet['position'][0] - tile_center[0]) > max_dist) or abs(bullet['position'][2] - tile_center[2]) > max_dist:
+        for bullet in game_state.bullets[:]:
+            if bullet.update(current_tile.position, max_dist):
                 game_state.bullets.remove(bullet)
 
-        # Update enemies
+       
         for enemy in game_state.enemies[:]:
-            # Movement
-            dx = game_state.player_pos[0] - enemy['position'][0]
-            dz = game_state.player_pos[2] - enemy['position'][2]
-            dist = math.sqrt(dx*dx + dz*dz)
-
-            if dist > 0.1:
-                enemy['position'][0] += (dx/dist) * enemy['speed']
-                enemy['position'][2] += (dz/dist) * enemy['speed']
-
-            # Collision with player
-            if dist < 0.8:
-                game_state.player_lives -= 1
+            if enemy.update(game_state.player.position, game_state.cheat_mode_active):
+                game_state.player.lives -= 1
                 game_state.enemies.remove(enemy)
-                if game_state.player_lives <= 0:
+                if game_state.player.lives <= 0:
                     game_state.game_over = True
 
-        # Bullet-enemy collisions
         for bullet in game_state.bullets[:]:
             for enemy in game_state.enemies[:]:
-                dx = bullet['position'][0] - enemy['position'][0]
-                dy = bullet['position'][1] - enemy['position'][1]
-                dz = bullet['position'][2] - enemy['position'][2]
+                dx = bullet.position[0] - enemy.position[0]
+                dy = bullet.position[1] - enemy.position[1]
+                dz = bullet.position[2] - enemy.position[2]
                 dist = math.sqrt(dx*dx + dy*dy + dz*dz)
 
-                if dist < enemy['size'] + 0.1:
+                if dist < enemy.size + 0.1:
                     game_state.bullets.remove(bullet)
                     game_state.enemies.remove(enemy)
-                    game_state.player_kills += 1
+                    game_state.player.kills += 1
+
+                  
+                    if game_state.player.kills % game_state.cheat_kills_needed == 0:
+                        game_state.cheat_mode_available = True
                     break
+
+        
+        game_state.check_tile_completion()
 
     glutPostRedisplay()
     glutTimerFunc(16, update, 0)
+
+    
+    if (game_state.current_tile == len(game_state.tiles) - 1 and
+            len(game_state.enemies) == 0 and
+            game_state.queen and not game_state.queen.saved and
+            not game_state.showing_difficulty_menu and not game_state.paused):
+
+        if game_state.queen.check_collision(game_state.player.position):
+            game_state.game_won = True
 
 def display():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
 
-    # Set up camera based on current mode
-    if game_state.camera_mode == 0:  # Third-person
-        rad = math.radians(game_state.player_angle)
-        cam_x = game_state.player_pos[0] - game_state.camera_distance * math.sin(rad)
-        cam_z = game_state.player_pos[2] - game_state.camera_distance * math.cos(rad)
-        cam_y = game_state.player_pos[1] + game_state.camera_height
+    if game_state.showing_difficulty_menu:
+        draw_difficulty_menu()
+    else:
+        
+        if game_state.camera_mode == 0:  
+            rad = math.radians(game_state.player.angle)
+            cam_x = game_state.player.position[0] - game_state.camera_distance * math.sin(rad)
+            cam_z = game_state.player.position[2] - game_state.camera_distance * math.cos(rad)
+            cam_y = game_state.player.position[1] + game_state.camera_height
 
-        gluLookAt(
-            cam_x, cam_y, cam_z,
-            game_state.player_pos[0], game_state.player_pos[1], game_state.player_pos[2],
-            0, 1, 0
-        )
-    else:  # First-person
-        rad = math.radians(game_state.player_angle)
-        eye_x = game_state.player_pos[0] + 0.3 * math.sin(rad)
-        eye_z = game_state.player_pos[2] + 0.3 * math.cos(rad)
-        eye_y = game_state.player_pos[1] + 0.5  # Eye level
+            gluLookAt(
+                cam_x, cam_y, cam_z,
+                game_state.player.position[0], game_state.player.position[1], game_state.player.position[2],
+                0, 1, 0
+            )
+        else:  
+            rad = math.radians(game_state.player.angle)
+            eye_x = game_state.player.position[0] + 0.3 * math.sin(rad)
+            eye_z = game_state.player.position[2] + 0.3 * math.cos(rad)
+            eye_y = game_state.player.position[1] + 0.5  
 
-        look_x = game_state.player_pos[0] + math.sin(rad)
-        look_z = game_state.player_pos[2] + math.cos(rad)
-        look_y = game_state.player_pos[1] + 0.5
+            look_x = game_state.player.position[0] + math.sin(rad)
+            look_z = game_state.player.position[2] + math.cos(rad)
+            look_y = game_state.player.position[1] + 0.5
 
-        gluLookAt(
-            eye_x, eye_y, eye_z,
-            look_x, look_y, look_z,
-            0, 1, 0
-        )
+            gluLookAt(
+                eye_x, eye_y, eye_z,
+                look_x, look_y, look_z,
+                0, 1, 0
+            )
 
-    # Draw all tiles
-    for tile in game_state.tiles:
-        draw_tile(tile)
+        
+        for tile in game_state.tiles:
+            tile.draw()
 
-    # Draw game objects
-    draw_player()
-    draw_enemies()
-    draw_bullets()
+        
+        game_state.player.draw()
+        for enemy in game_state.enemies:
+            enemy.draw()
+        for bullet in game_state.bullets:
+            bullet.draw()
 
-    # Draw HUD
-    draw_hud()
+        if game_state.queen and game_state.current_tile == len(game_state.tiles) - 1 and not game_state.queen.saved:
+            game_state.queen.draw()
+
+        draw_hud()
+
+       
+        if (not game_state.game_over and not game_state.game_won and
+            not game_state.round_finished and not game_state.show_final_round_message):
+            draw_crosshair()
 
     glutSwapBuffers()
 
 def keyboard(key, x, y):
+    global game_state
+
+    
+    if game_state.showing_difficulty_menu:
+        if key == b'1':
+            game_state = GameState(difficulty=1)  
+            game_state.showing_difficulty_menu = False
+        elif key == b'2':
+            game_state = GameState(difficulty=2)  
+            game_state.showing_difficulty_menu = False
+        elif key == b'3':
+            game_state = GameState(difficulty=3)  
+            game_state.showing_difficulty_menu = False
+        glutPostRedisplay()
+        return
+
+    
+    if key == b'p' or key == b'P':
+        game_state.paused = not game_state.paused
+        glutPostRedisplay()
+        return
+
+    if game_state.paused:
+        return
+
     move_speed = 0.2
     rotate_speed = 5.0
 
-    if key == b'w':  # Move forward
-        rad = math.radians(game_state.player_angle)
-        game_state.player_pos[0] += move_speed * math.sin(rad)
-        game_state.player_pos[2] += move_speed * math.cos(rad)
-    elif key == b's':  # Move backward
-        rad = math.radians(game_state.player_angle)
-        game_state.player_pos[0] -= move_speed * math.sin(rad)
-        game_state.player_pos[2] -= move_speed * math.cos(rad)
-    elif key == b'a':  # Rotate left
-        game_state.player_angle += rotate_speed
-    elif key == b'd':  # Rotate right
-        game_state.player_angle -= rotate_speed
-    elif key == b' ' and not game_state.is_jumping:  # Jump
-        if len(game_state.enemies) == 0 and game_state.tiles[game_state.current_tile]['completed']:
+    if key == b'w':  
+        rad = math.radians(game_state.player.angle)
+        game_state.player.position[0] += move_speed * math.sin(rad)
+        game_state.player.position[2] += move_speed * math.cos(rad)
+    elif key == b's':  
+        rad = math.radians(game_state.player.angle)
+        game_state.player.position[0] -= move_speed * math.sin(rad)
+        game_state.player.position[2] -= move_speed * math.cos(rad)
+    elif key == b'a':  
+        game_state.player.angle += rotate_speed
+    elif key == b'd':  
+        game_state.player.angle -= rotate_speed
+    elif key == b' ':  
+        if game_state.round_finished:
             if game_state.current_tile < len(game_state.tiles) - 1:
-                game_state.is_jumping = True
-                game_state.jump_progress = 0
-                game_state.jump_start_pos = game_state.player_pos.copy()
+                game_state.move_to_next_tile()
             else:
                 game_state.game_won = True
-        elif not game_state.is_jumping:  # Regular jump
-            game_state.is_jumping = True
-            game_state.jump_progress = 0
-            game_state.jump_start_pos = game_state.player_pos.copy()
-    elif key == b'c':  # Toggle camera mode
+    elif key == b'c':  
         game_state.camera_mode = 1 - game_state.camera_mode
-    elif key == b'r':  # Restart game
+    elif key == b'r':  
         reset_game()
+    elif key == b'm' or key == b'M':  
+        game_state.activate_cheat_mode()
 
     glutPostRedisplay()
 
 def mouse(button, state, x, y):
     if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
-        if not game_state.game_over and not game_state.game_won:
-            # Fire a bullet
-            bullet = {
-                'position': [
-                    game_state.player_pos[0],
-                    game_state.player_pos[1] + 0.5,
-                    game_state.player_pos[2]
+        if (not game_state.game_over and not game_state.game_won and
+            not game_state.round_finished and not game_state.showing_difficulty_menu and
+            not game_state.paused):
+            
+            bullet = Bullet(
+                position=[
+                    game_state.player.position[0],
+                    game_state.player.position[1] + 0.5,
+                    game_state.player.position[2]
                 ],
-                'angle': game_state.player_angle
-            }
+                angle=game_state.player.angle
+            )
             game_state.bullets.append(bullet)
 
     glutPostRedisplay()
 
 def reset_game():
     global game_state
-    game_state = GameState()
+    game_state.showing_difficulty_menu = True
     glutPostRedisplay()
 
+import sys
 def main():
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH)
